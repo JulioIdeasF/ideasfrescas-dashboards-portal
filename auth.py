@@ -27,8 +27,9 @@ def build_login_url():
 def handle_callback():
     """Lee el parámetro ?code= de la URL y obtiene el token desde Auth0."""
     cfg = get_auth0_config()
-    query_params = st.query_params  # Streamlit >=1.32
-    code = query_params.get("code", [None])[0] if isinstance(query_params.get("code", None), list) else query_params.get("code", None)
+
+    # Usar solo la nueva API: st.query_params
+    code = st.query_params.get("code")
 
     if not code:
         return None
@@ -52,11 +53,9 @@ def handle_callback():
     id_token = tokens.get("id_token")
     access_token = tokens.get("access_token")
 
-    # Decodificar el id_token para obtener datos del usuario
-    # Ojo: en producción debes validar la firma con las JWKs de Auth0
+    # Decodificar el id_token (por ahora sin validar firma, solo para pruebas)
     try:
-        # En tests, podemos omitir verificación de firma (verify=False),
-        # pero en producción es importante validar.
+        from jose import jwt
         decoded = jwt.get_unverified_claims(id_token)
     except Exception as e:
         st.error("Error decodificando el token.")
@@ -69,18 +68,17 @@ def handle_callback():
         "sub": decoded.get("sub"),
         "raw_id_token": id_token,
         "access_token": access_token,
-        # Dependiendo la configuración de Auth0, los roles pueden venir en un claim personalizado:
-        # ej. "https://ideasfrescas.com.mx/roles"
-        "roles": decoded.get("https://ideasfrescas.com.mx/roles", []),
+        "roles": decoded.get("dev-ajifaa3ovgdvp4ty.us.auth0.com/roles", []),
     }
 
     # Guardar en sesión
     st.session_state["user"] = user_info
 
-    # Limpiar el parámetro code de la URL (opcional)
-    st.experimental_set_query_params()
+    # Limpiar el parámetro ?code= de la URL usando solo la nueva API
+    st.query_params.clear()
 
     return user_info
+    
 
 def get_current_user():
     """Devuelve el usuario desde session_state, si existe."""
